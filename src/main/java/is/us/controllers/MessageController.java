@@ -1,61 +1,51 @@
 package is.us.controllers;
 
-import is.us.exceptions.NotFoundException;
-import is.us.model.Message;
+import com.fasterxml.jackson.annotation.JsonView;
+import is.us.domain.Message;
+import is.us.domain.Views;
+import is.us.repo.MessageRepository;
+import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
 @RequestMapping("/message")
 public class MessageController {
 
-    private int count = 3;
+    private final MessageRepository repository;
 
-    private List<Message> messages = new ArrayList<>(){{
-        add(new Message("1", "text 1"));
-        add(new Message("2", "message 2"));
-    }};
+    public MessageController(MessageRepository repository) {
+        this.repository = repository;
+    }
 
     @GetMapping
-    public List<Message> get(){
-        return messages;
+    @JsonView(Views.IdName.class)
+    public List<Message> list(){
+        return repository.findAll();
     }
 
     @GetMapping("{id}")
-    public Message get(@PathVariable String id){
-        return messages.stream()
-                .filter(message -> message.getId().equals(id))
-                .findFirst()
-                .orElseThrow(NotFoundException::new);
+    @JsonView(Views.IdNameCreate.class)
+    public Message get(@PathVariable("id") Message message){
+        return message;
     }
 
     @PostMapping
     public Message save(@RequestBody Message message){
-        message.setId(String.valueOf(count++));
-        messages.add(message);
-        return message;
+        message.setCreationDate(LocalDateTime.now());
+        return repository.save(message);
     }
 
     @PutMapping("{id}")
-    public Message update(@PathVariable String id, @RequestBody Message message){
-        var messageDB = messages.stream()
-                .filter(mess -> mess.getId().equals(id))
-                .findFirst()
-                .orElseThrow(NotFoundException::new);
-
-        messageDB.setText(message.getText());
-        return messageDB;
+    public Message update(@PathVariable("id") Message messageFormDB, @RequestBody Message message){
+        BeanUtils.copyProperties(message, messageFormDB, "id");
+        return repository.save(messageFormDB);
     }
 
     @DeleteMapping("{id}")
-    public void delete(@PathVariable String id){
-        var messageDB = messages.stream()
-                .filter(mess -> mess.getId().equals(id))
-                .findFirst()
-                .orElseThrow(NotFoundException::new);
-
-        messages.remove(messageDB);
+    public void delete(@PathVariable("id") Message message){
+        repository.delete(message);
     }
 }
